@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Vocabulario Boost</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background: #f4f4f9; }
+    .card { background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; width: 250px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .card img { max-width: 100%; border-radius: 4px; }
+    form { background: white; padding: 20px; border-radius: 8px; width: 300px; margin-bottom: 20px; }
+    input, button { display: block; width: 100%; margin-bottom: 10px; padding: 8px; box-sizing: border-box; }
+  </style>
+</head>
+<body>
+
+  <h2>Agregar Palabra</h2>
+  <form id="wordForm" enctype="multipart/form-data">
+    <input type="text" id="word" placeholder="Palabra en Inglés" required>
+    <input type="text" id="translation" placeholder="Traducción al Español" required>
+    <input type="file" id="image" accept="image/*" required>
+    <button type="submit">Guardar Palabra e Imagen</button>
+  </form>
+
+  <h2>Lista de Palabras</h2>
+  <div id="wordsContainer"></div>
+
+  <script>
+    const container = document.getElementById('wordsContainer');
+    const form = document.getElementById('wordForm');
+
+    async function cargarPalabras() {
+      const res = await fetch('/test-db');
+      const { data } = await res.json();
+      
+      container.innerHTML = '';
+      data.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'card';
+        div.innerHTML = `
+          ${item.image_url ? `<img src="${item.image_url}" alt="${item.word}">` : ''}
+          <h3>${item.word}</h3>
+          <p><strong>Traducción:</strong> ${item.translation || 'Sin traducción'}</p>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData();
+      formData.append('word', document.getElementById('word').value);
+      formData.append('translation', document.getElementById('translation').value);
+      formData.append('image', document.getElementById('image').files[0]);
+
+      const res = await fetch('/api/words-with-image', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (res.ok) {
+        form.reset();
+        cargarPalabras();
+      }
+    });
+
+    cargarPalabras();
+  </script>
+</body>
+</html>
