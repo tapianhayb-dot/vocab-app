@@ -25,9 +25,6 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-app.get('/', (req, res) => {
-  res.sendFile(__dirname + '/index.html');
-});
 // Ruta de prueba GET
 app.get('/test-db', async (req, res) => {
   const { data, error } = await supabase.from('words').select('*');
