@@ -76,7 +76,7 @@ app.post('/api/words-with-image', upload.single('image'), async (req, res) => {
     res.status(500).json({ status: 'Error', message: err.message });
   }
 });
-
+app.use(express.static(__dirname));
 app.listen(3000, () => {
   console.log('Servidor corriendo en http://localhost:3000');
 });
