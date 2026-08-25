@@ -15,8 +15,11 @@ const upload = multer({ dest: 'uploads/' });
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public'));
+app.use(express.static(__dirname));
 
+app.get('/', (req, res) => {
+  res.sendFile(__dirname + '/index.html');
+});
 // Ruta de prueba GET
 app.get('/test-db', async (req, res) => {
   const { data, error } = await supabase.from('words').select('*');
