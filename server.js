@@ -2,10 +2,11 @@ const express = require('express');
 const multer = require('multer');
 const fs = require('fs');
 const cors = require('cors');
-const path = require('path'); // <-- Importante
+const path = require('path');
 const { supabase } = require('./supabaseClient.js');
 
 const app = express();
+const PORT = process.env.PORT || 3000;
 
 // Crear carpeta temporal si no existe
 if (!fs.existsSync('uploads')) {
@@ -18,7 +19,7 @@ app.use(cors());
 app.use(express.json());
 
 // Servir archivos estáticos desde la raíz
-app.use(express.static(__dirname));
+app.use(express.static(path.join(__dirname)));
 
 // Ruta principal para servir index.html
 app.get('/', (req, res) => {
@@ -45,46 +46,40 @@ app.post('/api/words-with-image', upload.single('image'), async (req, res) => {
     const fileData = fs.readFileSync(file.path);
     const fileName = `${Date.now()}_${file.originalname}`;
 
-    // Subir imagen a Supabase Storage
-    const { error: storageError } = await supabase.storage
+    const { data: storageData, error: storageError } = await supabase.storage
       .from('words-images')
-      .upload(fileName, fileData, { contentType: file.mimetype });
+      .upload(fileName, fileData, {
+        contentType: file.mimetype,
+        upsert: true
+      });
 
-    // Borrar archivo local temporal
-    if (fs.existsSync(file.path)) {
-      fs.unlinkSync(file.path);
-    }
+    fs.unlinkSync(file.path);
 
     if (storageError) {
-      console.error('Error en Supabase Storage:', storageError);
       return res.status(500).json({ status: 'Error', message: storageError.message });
     }
 
-    // Obtener URL pública de la imagen
     const { data: urlData } = supabase.storage
       .from('words-images')
       .getPublicUrl(fileName);
 
     const imageUrl = urlData.publicUrl;
 
-    // Guardar registro en la base de datos
     const { data, error: dbError } = await supabase
       .from('words')
       .insert([{ word, translation, image_url: imageUrl }])
       .select();
 
     if (dbError) {
-      console.error('Error en DB:', dbError);
       return res.status(500).json({ status: 'Error', message: dbError.message });
     }
 
     res.json({ status: 'Exitoso', data });
   } catch (err) {
-    console.error('Error en el servidor:', err);
     res.status(500).json({ status: 'Error', message: err.message });
   }
 });
-app.use(express.static(__dirname));
-app.listen(3000, () => {
-  console.log('Servidor corriendo en http://localhost:3000');
+
+app.listen(PORT, () => {
+  console.log(`Servidor corriendo en el puerto ${PORT}`);
 });
