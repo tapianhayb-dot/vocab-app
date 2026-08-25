@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const fs = require('fs');
 const cors = require('cors');
+const path = require('path'); // <-- Importante
 const { supabase } = require('./supabaseClient.js');
 
 const app = express();
@@ -15,7 +16,14 @@ const upload = multer({ dest: 'uploads/' });
 
 app.use(cors());
 app.use(express.json());
+
+// Servir archivos estáticos desde la raíz
 app.use(express.static(__dirname));
+
+// Ruta principal para servir index.html
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
 
 app.get('/', (req, res) => {
   res.sendFile(__dirname + '/index.html');
