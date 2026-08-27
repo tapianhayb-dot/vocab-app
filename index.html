@@ -2,65 +2,220 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Vocabulario Boost</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Repositorio de Vocabulario</title>
   <style>
-    body { font-family: sans-serif; padding: 20px; background: #f4f4f9; }
-    .card { background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; width: 250px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    .card img { max-width: 100%; border-radius: 4px; }
-    form { background: white; padding: 20px; border-radius: 8px; width: 300px; margin-bottom: 20px; }
-    input, button { display: block; width: 100%; margin-bottom: 10px; padding: 8px; box-sizing: border-box; }
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background-color: #f8f9fa; margin: 0; padding: 20px; color: #333; }
+    
+    .container { max-width: 1400px; margin: 0 auto; }
+    
+    /* Panel de controles y formulario */
+    .panel { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
+    .form-group { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; }
+    .form-group input { padding: 10px 14px; border: 1px solid #ccc; border-radius: 6px; flex: 1; min-width: 180px; }
+    
+    /* Botones */
+    .btn { padding: 10px 18px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+    .btn-primary { background: #4f46e5; color: white; }
+    .btn-success { background: #10b981; color: white; }
+    .btn-secondary { background: #e5e7eb; color: #374151; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Filtro de Abecedario (A-Z) */
+    .alphabet-filter { display: flex; flex-wrap: wrap; gap: 5px; margin: 15px 0; }
+    .letter-btn { padding: 6px 12px; border: 1px solid #e5e7eb; background: white; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600; }
+    .letter-btn.active, .letter-btn:hover { background: #4f46e5; color: white; border-color: #4f46e5; }
+
+    /* Grid que ocupa toda la pantalla */
+    .words-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 18px; margin-top: 20px; }
+    
+    /* Tarjetas de palabras */
+    .card { background: white; border-radius: 10px; padding: 12px; text-align: center; border: 2px solid #e5e7eb; position: relative; cursor: pointer; user-select: none; transition: transform 0.1s, border-color 0.2s; }
+    .card:hover { transform: translateY(-3px); }
+    .card.selected { border-color: #10b981; background-color: #ecfdf5; }
+    .card img { width: 100%; height: 130px; object-fit: cover; border-radius: 8px; margin-bottom: 8px; }
+    .card-title { font-weight: bold; font-size: 1.1rem; margin: 5px 0 2px 0; }
+    .card-context { font-size: 0.85rem; color: #6b7280; font-style: italic; }
+    .checkbox-custom { position: absolute; top: 10px; right: 10px; width: 20px; height: 20px; cursor: pointer; }
   </style>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 </head>
 <body>
 
-  <h2>Agregar Palabra</h2>
-  <form id="wordForm" enctype="multipart/form-data">
-    <input type="text" id="word" placeholder="Palabra en Inglés" required>
-    <input type="text" id="translation" placeholder="Traducción al Español" required>
-    <input type="file" id="image" accept="image/*" required>
-    <button type="submit">Guardar Palabra e Imagen</button>
-  </form>
+  <div class="container">
+    <h1>📚 Repositorio de Vocabulario</h1>
 
-  <h2>Lista de Palabras</h2>
-  <div id="wordsContainer"></div>
+    <!-- Subir Palabras -->
+    <div class="panel">
+      <h3>Subir nueva palabra</h3>
+      <form id="uploadForm" class="form-group">
+        <input type="text" id="word" placeholder="Palabra (ej: Bat)" required>
+        <input type="text" id="context" placeholder="Contexto (ej: animal)">
+        <input type="file" id="image" accept="image/*" required>
+        <button type="submit" class="btn btn-primary">Guardar en catálogo</button>
+      </form>
+    </div>
+
+    <!-- Controles de Filtro y Descarga -->
+    <div class="panel">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <input type="text" id="searchInput" placeholder="🔍 Buscar por palabra..." style="padding: 8px 12px; width: 250px; border-radius: 6px; border: 1px solid #ccc;">
+        <div>
+          <button id="selectAllBtn" class="btn btn-secondary">Seleccionar visibles</button>
+          <button id="downloadZipBtn" class="btn btn-success" disabled>Descargar ZIP (0)</button>
+        </div>
+      </div>
+
+      <!-- Menú A-Z -->
+      <div class="alphabet-filter" id="alphabetBar">
+        <button class="letter-btn active" data-letter="ALL">TODAS</button>
+      </div>
+    </div>
+
+    <!-- Rejilla de Imágenes -->
+    <div class="words-grid" id="wordsGrid"></div>
+  </div>
 
   <script>
-    const container = document.getElementById('wordsContainer');
-    const form = document.getElementById('wordForm');
+    let allWords = [];
+    const selectedWords = new Map();
+    let currentLetterFilter = 'ALL';
 
+    // 1. Generar la barra A-Z dinámicamente
+    const alphabetBar = document.getElementById('alphabetBar');
+    for (let i = 65; i <= 90; i++) {
+      const letter = String.fromCharCode(i);
+      const btn = document.createElement('button');
+      btn.className = 'letter-btn';
+      btn.textContent = letter;
+      btn.dataset.letter = letter;
+      btn.addEventListener('click', () => filterByLetter(letter, btn));
+      alphabetBar.appendChild(btn);
+    }
+
+    // 2. Cargar palabras de la base de datos y ordenarlas alfabéticamente
     async function cargarPalabras() {
-      const res = await fetch('/test-db');
-      const { data } = await res.json();
+      const res = await fetch('/api/words');
+      const data = await res.json();
       
-      container.innerHTML = '';
-      data.forEach(item => {
-        const div = document.createElement('div');
-        div.className = 'card';
-        div.innerHTML = `
-          ${item.image_url ? `<img src="${item.image_url}" alt="${item.word}">` : ''}
-          <h3>${item.word}</h3>
-          <p><strong>Traducción:</strong> ${item.translation || 'Sin traducción'}</p>
+      // Orden alfabético (A-Z) automático
+      allWords = data.sort((a, b) => a.word.localeCompare(b.word));
+      renderGrid();
+    }
+
+    // 3. Renderizar las tarjetas según los filtros activos
+    function renderGrid() {
+      const grid = document.getElementById('wordsGrid');
+      const searchSearch = document.getElementById('searchInput').value.toLowerCase();
+      grid.innerHTML = '';
+
+      const filtered = allWords.filter(item => {
+        const matchesLetter = currentLetterFilter === 'ALL' || item.word.toUpperCase().startsWith(currentLetterFilter);
+        const matchesSearch = item.word.toLowerCase().includes(searchSearch);
+        return matchesLetter && matchesSearch;
+      });
+
+      filtered.forEach(item => {
+        const ext = item.image_url.split('.').pop().split('?')[0] || 'jpg';
+        const fileName = item.context && item.context.trim() !== '' 
+          ? `${item.word.trim()} (${item.context.trim()}).${ext}` 
+          : `${item.word.trim()}.${ext}`;
+
+        const isSelected = selectedWords.has(item.image_url);
+
+        const card = document.createElement('div');
+        card.className = `card ${isSelected ? 'selected' : ''}`;
+        card.innerHTML = `
+          <input type="checkbox" class="checkbox-custom" ${isSelected ? 'checked' : ''}>
+          <img src="${item.image_url}" alt="${item.word}">
+          <div class="card-title">${item.word}</div>
+          ${item.context ? `<div class="card-context">(${item.context})</div>` : ''}
         `;
-        container.appendChild(div);
+
+        const checkbox = card.querySelector('input');
+        
+        card.addEventListener('click', (e) => {
+          if (e.target !== checkbox) checkbox.checked = !checkbox.checked;
+          
+          if (checkbox.checked) {
+            card.classList.add('selected');
+            selectedWords.set(item.image_url, fileName);
+          } else {
+            card.classList.remove('selected');
+            selectedWords.delete(item.image_url);
+          }
+          actualizarBotonZip();
+        });
+
+        grid.appendChild(card);
       });
     }
 
-    form.addEventListener('submit', async (e) => {
+    // Filtrar por letra A-Z
+    function filterByLetter(letter, btnElement) {
+      currentLetterFilter = letter;
+      document.querySelectorAll('.letter-btn').forEach(b => b.classList.remove('active'));
+      btnElement.classList.add('active');
+      renderGrid();
+    }
+
+    document.getElementById('searchInput').addEventListener('input', renderGrid);
+
+    function actualizarBotonZip() {
+      const btn = document.getElementById('downloadZipBtn');
+      btn.textContent = `Descargar ZIP (${selectedWords.size})`;
+      btn.disabled = selectedWords.size === 0;
+    }
+
+    // Seleccionar visibles
+    document.getElementById('selectAllBtn').addEventListener('click', () => {
+      const cards = document.querySelectorAll('.card');
+      cards.forEach(card => {
+        const checkbox = card.querySelector('input');
+        if (!checkbox.checked) {
+          card.click();
+        }
+      });
+    });
+
+    // 4. Subir nueva palabra
+    document.getElementById('uploadForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const formData = new FormData();
       formData.append('word', document.getElementById('word').value);
-      formData.append('translation', document.getElementById('translation').value);
+      formData.append('context', document.getElementById('context').value);
       formData.append('image', document.getElementById('image').files[0]);
 
-      const res = await fetch('/api/words-with-image', {
-        method: 'POST',
-        body: formData
-      });
-
+      const res = await fetch('/api/words-with-image', { method: 'POST', body: formData });
       if (res.ok) {
-        form.reset();
+        document.getElementById('uploadForm').reset();
         cargarPalabras();
       }
+    });
+
+    // 5. Generar ZIP
+    document.getElementById('downloadZipBtn').addEventListener('click', async () => {
+      const zip = new JSZip();
+      const btn = document.getElementById('downloadZipBtn');
+      btn.textContent = 'Comprimiendo...';
+
+      for (const [url, filename] of selectedWords.entries()) {
+        try {
+          const response = await fetch(url);
+          const blob = await response.blob();
+          zip.file(filename, blob);
+        } catch (err) {
+          console.error('Error al descargar:', url, err);
+        }
+      }
+
+      zip.generateAsync({ type: 'blob' }).then((content) => {
+        saveAs(content, `vocabulario_seleccionado.zip`);
+        actualizarBotonZip();
+      });
     });
 
     cargarPalabras();
