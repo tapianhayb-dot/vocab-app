@@ -1,85 +1,73 @@
 const express = require('express');
 const multer = require('multer');
-const fs = require('fs');
-const cors = require('cors');
+const { createClient } = require('@supabase/supabase-js');
 const path = require('path');
-const { supabase } = require('./supabaseClient.js');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const port = process.env.PORT || 3000;
 
-// Crear carpeta temporal si no existe
-if (!fs.existsSync('uploads')) {
-  fs.mkdirSync('uploads');
-}
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
 
-const upload = multer({ dest: 'uploads/' });
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-app.use(cors());
 app.use(express.json());
+app.use(express.static(path.join(__dirname, 'Public')));
 
-// Servir archivos estáticos desde la raíz
-app.use(express.static(path.join(__dirname)));
-
-// Ruta principal para servir index.html
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+  res.sendFile(path.join(__dirname, 'Public', 'index.html'));
 });
 
-// Ruta de prueba GET
-app.get('/test-db', async (req, res) => {
-  const { data, error } = await supabase.from('words').select('*');
-  if (error) return res.status(500).json({ status: 'Error', message: error.message });
-  res.json({ status: 'Exitoso', data });
-});
-
-// Ruta POST para recibir formulario con imagen
-app.post('/api/words-with-image', upload.single('image'), async (req, res) => {
+app.get('/api/words', async (req, res) => {
   try {
-    const { word, translation } = req.body;
-    const file = req.file;
-
-    if (!file) {
-      return res.status(400).json({ status: 'Error', message: 'Falta la imagen' });
-    }
-
-    const fileData = fs.readFileSync(file.path);
-    const fileName = `${Date.now()}_${file.originalname}`;
-
-    const { data: storageData, error: storageError } = await supabase.storage
-      .from('words-images')
-      .upload(fileName, fileData, {
-        contentType: file.mimetype,
-        upsert: true
-      });
-
-    fs.unlinkSync(file.path);
-
-    if (storageError) {
-      return res.status(500).json({ status: 'Error', message: storageError.message });
-    }
-
-    const { data: urlData } = supabase.storage
-      .from('words-images')
-      .getPublicUrl(fileName);
-
-    const imageUrl = urlData.publicUrl;
-
-    const { data, error: dbError } = await supabase
-      .from('words')
-      .insert([{ word, translation, image_url: imageUrl }])
-      .select();
-
-    if (dbError) {
-      return res.status(500).json({ status: 'Error', message: dbError.message });
-    }
-
-    res.json({ status: 'Exitoso', data });
+    const { data, error } = await supabase.from('words').select('*');
+    if (error) throw error;
+    res.json(data);
   } catch (err) {
-    res.status(500).json({ status: 'Error', message: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Servidor corriendo en el puerto ${PORT}`);
+app.post('/api/words-with-image', upload.single('image'), async (req, res) => {
+  try {
+    const { word, translation, context, part_of_speech } = req.body;
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({ error: 'No se subió ninguna imagen' });
+    }
+
+    const fileExt = file.originalname.split('.').pop();
+    const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+    const { data: storageData, error: storageError } = await supabase
+      .storage
+      .from('words-images')
+      .upload(fileName, file.buffer, { contentType: file.mimetype });
+
+    if (storageError) throw storageError;
+
+    const { data: publicUrlData } = supabase
+      .storage
+      .from('words-images')
+      .getPublicUrl(fileName);
+
+    const imageUrl = publicUrlData.publicUrl;
+
+    const { data, error } = await supabase
+      .from('words')
+      .insert([{ word, translation, context, part_of_speech, image_url: imageUrl }]);
+
+    if (error) throw error;
+
+    res.json({ message: 'Guardado con éxito', data });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.listen(port, () => {
+  console.log(`Servidor ejecutándose en el puerto ${port}`);
 });
