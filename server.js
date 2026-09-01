@@ -35,13 +35,14 @@ app.post('/api/words-with-image', upload.single('image'), async (req, res) => {
     const { word, translation, context, part_of_speech } = req.body;
     const file = req.file;
 
-    if (!file) {
-      return res.status(400).json({ error: 'No se subió ninguna imagen' });
+    if (!word || !file) {
+      return res.status(400).json({ error: 'La palabra y la imagen son obligatorias.' });
     }
 
     const fileExt = file.originalname.split('.').pop();
     const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
 
+    // 1. Subir imagen al Bucket 'words-images'
     const { data: storageData, error: storageError } = await supabase
       .storage
       .from('words-images')
@@ -49,6 +50,7 @@ app.post('/api/words-with-image', upload.single('image'), async (req, res) => {
 
     if (storageError) throw storageError;
 
+    // 2. Obtener URL pública
     const { data: publicUrlData } = supabase
       .storage
       .from('words-images')
@@ -56,14 +58,23 @@ app.post('/api/words-with-image', upload.single('image'), async (req, res) => {
 
     const imageUrl = publicUrlData.publicUrl;
 
+    // 3. Insertar en la tabla 'words' y devolver el registro (.select())
     const { data, error } = await supabase
       .from('words')
-      .insert([{ word, translation, context, part_of_speech, image_url: imageUrl }]);
+      .insert([{ 
+        word: word.trim(), 
+        translation: translation?.trim() || null, 
+        context: context?.trim() || null, 
+        part_of_speech: part_of_speech?.trim() || null, 
+        image_url: imageUrl 
+      }])
+      .select(); // <--- FUNDAMENTAL para devolver la fila insertada a la respuesta
 
     if (error) throw error;
 
-    res.json({ message: 'Guardado con éxito', data });
+    res.json({ message: 'Guardado con éxito', data: data[0] });
   } catch (err) {
+    console.error("Error en POST /api/words-with-image:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
