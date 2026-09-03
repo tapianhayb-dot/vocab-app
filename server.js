@@ -11,7 +11,15 @@ const upload = multer({ storage: storage });
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error("ERROR CRÍTICO: Faltan las variables SUPABASE_URL o SUPABASE_KEY en Render.");
+}
+
+const supabase = createClient(
+  supabaseUrl || 'https://placeholder.supabase.co', 
+  supabaseKey || 'placeholder'
+);
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
