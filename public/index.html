@@ -107,13 +107,25 @@
     }
 
     // 2. Cargar palabras de la base de datos
-    async function cargarPalabras() {
-      const res = await fetch('/api/words');
-      const data = await res.json();
-      
-      allWords = data.sort((a, b) => a.word.localeCompare(b.word));
+ async function cargarPalabras() {
+  try {
+    const res = await fetch('/api/words');
+    const data = await res.json();
+
+    if (!res.ok || !Array.isArray(data)) {
+      console.error('Error al cargar palabras desde el servidor:', data);
+      allWords = [];
       renderGrid();
+      return;
     }
+
+    allWords = data;
+    allWords.sort((a, b) => a.word.localeCompare(b.word));
+    renderGrid();
+  } catch (err) {
+    console.error('Error de red al conectar con /api/words:', err);
+  }
+}
 
     // Limpiar texto para nombre de archivo
     function sanitize(str) {
