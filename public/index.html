@@ -146,7 +146,7 @@
       });
 
       filtered.forEach(item => {
-        const ext = item.image_url.split('.').pop().split('?')[0] || 'jpg';
+       const ext = (item.image_url || '').split('.').pop().split('?')[0] || 'jpg';
         
         // Construir nombre: palabra_traduccion_contexto_categoria.ext
         const parts = [
