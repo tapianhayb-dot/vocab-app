@@ -86,7 +86,19 @@ app.post('/api/words-with-image', upload.single('image'), async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// Ruta para eliminar una palabra por su ID
+app.delete('/api/words/:id', async (req, res) => {
+  const { id } = req.params;
+  const { data, error } = await supabase
+    .from('words') // Asegúrate de que tu tabla se llame 'words'
+    .delete()
+    .eq('id', id);
 
+  if (error) {
+    return res.status(500).json({ error: error.message });
+  }
+  res.json({ message: 'Palabra eliminada correctamente', data });
+});
 app.listen(port, () => {
   console.log(`Servidor ejecutándose en el puerto ${port}`);
 });
