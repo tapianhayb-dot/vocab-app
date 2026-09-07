@@ -164,8 +164,7 @@
         card.className = `card ${isSelected ? 'selected' : ''}`;
         card.innerHTML = `
           <input type="checkbox" class="checkbox-custom" ${isSelected ? 'checked' : ''}>
-          <img src="${item.image_url}" alt="${item.word}">
-          <div class="card-title">${item.word}</div>
+<img src="${item.image_url || 'https://via.placeholder.com/150?text=No+Image'}" alt="${item.word}">          <div class="card-title">${item.word}</div>
           ${item.translation ? `<div class="card-sub">${item.translation}</div>` : ''}
           <div class="card-tags">
             ${item.context ? `[${item.context}]` : ''} ${item.part_of_speech || item.category ? `(${item.part_of_speech || item.category})` : ''}
