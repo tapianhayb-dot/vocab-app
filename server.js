@@ -73,7 +73,7 @@ app.post('/api/words-with-image', upload.single('image'), async (req, res) => {
         word: word.trim(), 
         translation: translation?.trim() || null, 
         context: context?.trim() || null, 
-        category: part_of_speech?.trim() || null,
+        part_of_speech: part_of_speech?.trim() || null,
         image_url: imageUrl 
       }])
       .select(); // <--- FUNDAMENTAL para devolver la fila insertada a la respuesta
