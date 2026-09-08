@@ -149,14 +149,14 @@
        const ext = (item.image_url || '').split('.').pop().split('?')[0] || 'jpg';
         
         // Construir nombre: palabra_traduccion_contexto_categoria.ext
-        const parts = [
-          sanitize(item.word),
-          sanitize(item.translation),
-          sanitize(item.context),
-          sanitize(item.part_of_speech || item.category)
-        ].filter(p => p !== ''); // Elimina campos vacíos
+const parts = [
+  sanitize(item.word),
+  sanitize(item.translation),
+  sanitize(item.context),
+  sanitize(item.part_of_speech || item.category)
+].filter(p => p !== ''); // Elimina campos vacíos
 
-        const fileName = `${parts.join('_')}.${ext}`;
+const fileName = `${parts.join('_')}.${ext}`;
 
         const isSelected = selectedWords.has(item.image_url);
 
