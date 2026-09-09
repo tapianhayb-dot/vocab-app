@@ -15,12 +15,28 @@
     .form-grid { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 15px; }
     .form-grid input, .form-grid select { flex: 1; min-width: 150px; padding: 10px 14px; border: 1px solid #ccc; border-radius: 6px; }
     
+    /* Pestañas */
+    .tabs { display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; }
+    .tab-btn { padding: 8px 16px; border: none; background: transparent; font-weight: bold; cursor: pointer; color: #6b7280; border-radius: 6px; }
+    .tab-btn.active { background: #4f46e5; color: white; }
+
     /* Botones */
     .btn { padding: 10px 18px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
     .btn-primary { background: #4f46e5; color: white; }
     .btn-success { background: #10b981; color: white; }
     .btn-secondary { background: #e5e7eb; color: #374151; }
     .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Zona Dumper Drag & Drop */
+    .drop-zone { border: 2px dashed #4f46e5; border-radius: 10px; padding: 25px; text-align: center; background: #eef2ff; color: #4f46e5; font-weight: bold; cursor: pointer; transition: 0.2s; }
+    .drop-zone:hover { background: #e0e7ff; }
+
+    /* Tabla Dumper */
+    .dumper-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    .dumper-table th, .dumper-table td { padding: 10px; border: 1px solid #e5e7eb; text-align: left; }
+    .dumper-table th { background: #f3f4f6; }
+    .dumper-table img { width: 50px; height: 50px; object-fit: cover; border-radius: 6px; }
+    .dumper-table input, .dumper-table select { width: 100%; padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; }
 
     /* Filtro de Abecedario (A-Z) */
     .alphabet-filter { display: flex; flex-wrap: wrap; gap: 5px; margin: 15px 0; }
@@ -49,25 +65,59 @@
   <div class="container">
     <h1>📚 Repositorio de Vocabulario</h1>
 
-    <!-- Subir Palabras -->
+    <!-- Panel de Subida con Pestañas -->
     <div class="panel">
-      <h3>Subir nueva palabra</h3>
-      <form id="uploadForm">
-        <div class="form-grid">
-          <input type="text" id="word" placeholder="Palabra en inglés (ej: Bat)" required>
-          <input type="text" id="translation" placeholder="Traducción (ej: murcielago)">
-          <input type="text" id="context" placeholder="Contexto (ej: animal)">
-          <select id="partOfSpeech">
-            <option value="">Categoría (Opcional)</option>
-            <option value="noun">Noun (Sustantivo)</option>
-            <option value="verb">Verb (Verbo)</option>
-            <option value="adj">Adjective (Adjetivo)</option>
-            <option value="adv">Adverb (Adverbio)</option>
-          </select>
-          <input type="file" id="image" accept="image/*" required>
+      <div class="tabs">
+        <button class="tab-btn active" id="tabSingleBtn" onclick="switchTab('single')">Subir Una Palabra</button>
+        <button class="tab-btn" id="tabDumperBtn" onclick="switchTab('dumper')">⚡ Carga Masiva (Dumper)</button>
+      </div>
+
+      <!-- Formulario Individual -->
+      <div id="singleUploadView">
+        <form id="uploadForm">
+          <div class="form-grid">
+            <input type="text" id="word" placeholder="Palabra en inglés (ej: Bat)" required>
+            <input type="text" id="translation" placeholder="Traducción (ej: murcielago)">
+            <input type="text" id="context" placeholder="Contexto (ej: animal)">
+            <select id="partOfSpeech">
+              <option value="">Categoría (Opcional)</option>
+              <option value="noun">Noun (Sustantivo)</option>
+              <option value="verb">Verb (Verbo)</option>
+              <option value="adj">Adjective (Adjetivo)</option>
+              <option value="adv">Adverb (Adverbio)</option>
+            </select>
+            <input type="file" id="image" accept="image/*" required>
+          </div>
+          <button type="submit" class="btn btn-primary">Guardar en catálogo</button>
+        </form>
+      </div>
+
+      <!-- Carga Masiva Dumper -->
+      <div id="dumperView" style="display: none;">
+        <div class="drop-zone" id="dropZone" onclick="document.getElementById('dumperFileInput').click()">
+          📂 Arrastra aquí tus imágenes o haz clic para seleccionar varias a la vez
+          <input type="file" id="dumperFileInput" accept="image/*" multiple style="display: none;">
         </div>
-        <button type="submit" class="btn btn-primary">Guardar en catálogo</button>
-      </form>
+
+        <div id="dumperTableContainer" style="display: none; margin-top: 15px;">
+          <table class="dumper-table">
+            <thead>
+              <tr>
+                <th>Vista Previa</th>
+                <th>Palabra (Inglés)</th>
+                <th>Traducción</th>
+                <th>Contexto</th>
+                <th>Categoría</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody id="dumperTbody"></tbody>
+          </table>
+          <div style="margin-top: 15px; text-align: right;">
+            <button class="btn btn-success" id="saveDumperBatchBtn" onclick="saveDumperBatch()">💾 Guardar todas en lote</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Controles de Filtro y Descarga -->
@@ -76,7 +126,6 @@
         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
           <input type="text" id="searchInput" placeholder="🔍 Buscar por palabra o traducción..." style="padding: 8px 12px; width: 250px; border-radius: 6px; border: 1px solid #ccc;">
           
-          <!-- Filtro Clasificador de Categoría -->
           <select id="categoryFilter" style="padding: 8px 12px; border-radius: 6px; border: 1px solid #ccc; background: white;">
             <option value="ALL">Todas las categorías</option>
             <option value="noun">Noun (Sustantivo)</option>
@@ -106,6 +155,15 @@
     let allWords = [];
     const selectedWords = new Map();
     let currentLetterFilter = 'ALL';
+    let dumperFiles = [];
+
+    // Cambiar pestañas
+    function switchTab(tab) {
+      document.getElementById('singleUploadView').style.display = tab === 'single' ? 'block' : 'none';
+      document.getElementById('dumperView').style.display = tab === 'dumper' ? 'block' : 'none';
+      document.getElementById('tabSingleBtn').classList.toggle('active', tab === 'single');
+      document.getElementById('tabDumperBtn').classList.toggle('active', tab === 'dumper');
+    }
 
     // Inicializar abecedario
     function initAlphabet() {
@@ -124,6 +182,106 @@
         btn.addEventListener('click', () => filterByLetter(letter, btn));
         alphabetBar.appendChild(btn);
       }
+    }
+
+    // Lógica Dumper (Drag & Drop y Procesamiento)
+    const dropZone = document.getElementById('dropZone');
+    const dumperFileInput = document.getElementById('dumperFileInput');
+
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, (e) => { e.preventDefault(); e.stopPropagation(); }, false);
+    });
+
+    dropZone.addEventListener('drop', (e) => handleFiles(e.dataTransfer.files));
+    dumperFileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+    function handleFiles(files) {
+      const arrayFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+      if (arrayFiles.length === 0) return;
+
+      dumperFiles = arrayFiles.map(file => {
+        // Extraer nombre básico sin extensión
+        const nameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+        
+        // Separar si viene con guion bajo o medio (ej: dog_perro o dog-perro)
+        const parts = nameWithoutExt.split(/[-_]/);
+        const rawWord = parts[0] ? parts[0].trim() : nameWithoutExt;
+        const rawTrans = parts[1] ? parts[1].trim() : '';
+
+        return {
+          file: file,
+          previewUrl: URL.createObjectURL(file),
+          word: rawWord.charAt(0).toUpperCase() + rawWord.slice(1),
+          translation: rawTrans ? rawTrans.charAt(0).toUpperCase() + rawTrans.slice(1) : '',
+          context: '',
+          part_of_speech: ''
+        };
+      });
+
+      renderDumperTable();
+    }
+
+    function renderDumperTable() {
+      const tbody = document.getElementById('dumperTbody');
+      tbody.innerHTML = '';
+
+      dumperFiles.forEach((item, index) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><img src="${item.previewUrl}" alt="Preview"></td>
+          <td><input type="text" value="${item.word}" oninput="dumperFiles[${index}].word = this.value"></td>
+          <td><input type="text" value="${item.translation}" oninput="dumperFiles[${index}].translation = this.value"></td>
+          <td><input type="text" value="${item.context}" placeholder="ej: casa" oninput="dumperFiles[${index}].context = this.value"></td>
+          <td>
+            <select onchange="dumperFiles[${index}].part_of_speech = this.value">
+              <option value="">Opcional</option>
+              <option value="noun" ${item.part_of_speech === 'noun' ? 'selected' : ''}>Noun</option>
+              <option value="verb" ${item.part_of_speech === 'verb' ? 'selected' : ''}>Verb</option>
+              <option value="adj" ${item.part_of_speech === 'adj' ? 'selected' : ''}>Adjective</option>
+              <option value="adv" ${item.part_of_speech === 'adv' ? 'selected' : ''}>Adverb</option>
+            </select>
+          </td>
+          <td><button class="btn" style="background:#ff4d4d; color:white; padding: 4px 8px;" onclick="removeDumperItem(${index})">&times;</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById('dumperTableContainer').style.display = dumperFiles.length > 0 ? 'block' : 'none';
+    }
+
+    function removeDumperItem(index) {
+      dumperFiles.splice(index, 1);
+      renderDumperTable();
+    }
+
+    async function saveDumperBatch() {
+      const btn = document.getElementById('saveDumperBatchBtn');
+      btn.disabled = true;
+      btn.textContent = 'Guardando Lote...';
+
+      for (const item of dumperFiles) {
+        if (!item.word.trim()) continue;
+
+        const formData = new FormData();
+        formData.append('word', item.word);
+        formData.append('translation', item.translation);
+        formData.append('context', item.context);
+        formData.append('part_of_speech', item.part_of_speech);
+        formData.append('image', item.file);
+
+        try {
+          await fetch('/api/words-with-image', { method: 'POST', body: formData });
+        } catch (err) {
+          console.error('Error al guardar palabra:', item.word, err);
+        }
+      }
+
+      dumperFiles = [];
+      renderDumperTable();
+      btn.disabled = false;
+      btn.textContent = '💾 Guardar todas en lote';
+      switchTab('single');
+      cargarPalabras();
     }
 
     // Cargar palabras
