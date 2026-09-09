@@ -12,8 +12,9 @@
     
     /* Panel de controles y formulario */
     .panel { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
-.form-grid { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 15px; }
-.form-grid input, .form-grid select { flex: 1; min-width: 150px; padding: 10px 14px; border: 1px solid #ccc; border-radius: 6px; }
+    .form-grid { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 15px; }
+    .form-grid input, .form-grid select { flex: 1; min-width: 150px; padding: 10px 14px; border: 1px solid #ccc; border-radius: 6px; }
+    
     /* Botones */
     .btn { padding: 10px 18px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
     .btn-primary { background: #4f46e5; color: white; }
@@ -69,7 +70,7 @@
       </form>
     </div>
 
-<!-- Controles de Filtro y Descarga -->
+    <!-- Controles de Filtro y Descarga -->
     <div class="panel">
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
@@ -93,7 +94,7 @@
 
       <!-- Menú A-Z -->
       <div class="alphabet-filter" id="alphabetBar">
-        <button class="letter-btn active" id="btnAll" data-letter="ALL">TODAS</button>
+        <button class="letter-btn active" id="btnAll">TODAS</button>
       </div>
     </div>
 
@@ -102,34 +103,37 @@
   </div>
 
   <script>
-  let allWords = [];
+    let allWords = [];
     const selectedWords = new Map();
     let currentLetterFilter = 'ALL';
 
-    // 1. Configurar botón TODAS y generar el abecedario A-Z
-    const alphabetBar = document.getElementById('alphabetBar');
-    const btnAll = document.getElementById('btnAll');
+    // Inicializar abecedario
+    function initAlphabet() {
+      const alphabetBar = document.getElementById('alphabetBar');
+      const btnAll = document.getElementById('btnAll');
 
-    btnAll.addEventListener('click', () => filterByLetter('ALL', btnAll));
+      if (btnAll) {
+        btnAll.addEventListener('click', () => filterByLetter('ALL', btnAll));
+      }
 
-    for (let i = 65; i <= 90; i++) {
-      const letter = String.fromCharCode(i);
-      const btn = document.createElement('button');
-      btn.className = 'letter-btn';
-      btn.textContent = letter;
-      btn.dataset.letter = letter;
-      btn.addEventListener('click', () => filterByLetter(letter, btn));
-      alphabetBar.appendChild(btn);
+      for (let i = 65; i <= 90; i++) {
+        const letter = String.fromCharCode(i);
+        const btn = document.createElement('button');
+        btn.className = 'letter-btn';
+        btn.textContent = letter;
+        btn.addEventListener('click', () => filterByLetter(letter, btn));
+        alphabetBar.appendChild(btn);
+      }
     }
 
-    // 2. Cargar palabras de la base de datos
+    // Cargar palabras
     async function cargarPalabras() {
       try {
         const res = await fetch('/api/words');
         const data = await res.json();
 
         if (!res.ok || !Array.isArray(data)) {
-          console.error('Error al cargar palabras desde el servidor:', data);
+          console.error('Error al cargar palabras:', data);
           allWords = [];
           renderGrid();
           return;
@@ -143,13 +147,12 @@
       }
     }
 
-    // Limpiar texto para nombre de archivo
     function sanitize(str) {
       if (!str) return '';
       return str.toLowerCase().trim().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
     }
 
-    // 3. Renderizar las tarjetas con triple filtro (Búsqueda, Letra y Categoría)
+    // Renderizar tarjetas con triple filtro
     function renderGrid() {
       const grid = document.getElementById('wordsGrid');
       const searchSearch = document.getElementById('searchInput').value.toLowerCase();
@@ -157,13 +160,9 @@
       grid.innerHTML = '';
 
       const filtered = allWords.filter(item => {
-        // Condición 1: Filtro A-Z
         const matchesLetter = currentLetterFilter === 'ALL' || item.word.toUpperCase().startsWith(currentLetterFilter);
-        
-        // Condición 2: Filtro por Texto (Palabra o Traducción)
         const matchesSearch = item.word.toLowerCase().includes(searchSearch) || (item.translation && item.translation.toLowerCase().includes(searchSearch));
         
-        // Condición 3: Filtro por Categoría / Part of Speech
         const itemCategory = (item.part_of_speech || item.category || '').toLowerCase();
         const matchesCategory = selectedCategory === 'all' || itemCategory === selectedCategory;
 
@@ -173,7 +172,6 @@
       filtered.forEach(item => {
         const ext = (item.image_url || '').split('.').pop().split('?')[0] || 'jpg';
         
-        // Nombramiento automático formateado: palabra_traduccion_contexto_categoria.ext
         const parts = [
           sanitize(item.word),
           sanitize(item.translation),
@@ -223,7 +221,6 @@
       renderGrid();
     }
 
-    // Escuchadores de cambio para refrescar la lista
     document.getElementById('searchInput').addEventListener('input', renderGrid);
     document.getElementById('categoryFilter').addEventListener('change', renderGrid);
 
@@ -243,7 +240,7 @@
       });
     });
 
-    // 4. Subir nueva palabra
+    // Subir nueva palabra
     document.getElementById('uploadForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const wordInput = document.getElementById('word').value.trim();
@@ -268,7 +265,7 @@
       }
     });
 
-    // 5. Generar ZIP
+    // Generar ZIP
     document.getElementById('downloadZipBtn').addEventListener('click', async () => {
       const zip = new JSZip();
       const btn = document.getElementById('downloadZipBtn');
@@ -305,4 +302,9 @@
       }
     }
 
+    // Inicializar todo
+    initAlphabet();
     cargarPalabras();
+  </script>
+</body>
+</html>
