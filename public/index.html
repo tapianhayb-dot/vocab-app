@@ -25,6 +25,7 @@
     .btn-primary { background: #4f46e5; color: white; }
     .btn-success { background: #10b981; color: white; }
     .btn-secondary { background: #e5e7eb; color: #374151; }
+    .btn-warning { background: #f59e0b; color: white; }
     .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
     /* Zona Dumper Drag & Drop */
@@ -55,6 +56,11 @@
     .card-sub { font-size: 0.85rem; color: #4f46e5; font-weight: 600; }
     .card-tags { font-size: 0.78rem; color: #6b7280; font-style: italic; margin-top: 3px; }
     .checkbox-custom { position: absolute; top: 10px; right: 10px; width: 20px; height: 20px; cursor: pointer; }
+
+    /* Modal Lector Inteligente */
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; justify-content: center; align-items: center; }
+    .modal-content { background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 600px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); }
+    .modal-content textarea { width: 100%; height: 160px; padding: 12px; border: 1px solid #ccc; border-radius: 6px; font-family: monospace; resize: vertical; margin: 15px 0; }
   </style>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -123,8 +129,8 @@
     <!-- Controles de Filtro y Descarga -->
     <div class="panel">
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-          <input type="text" id="searchInput" placeholder="🔍 Buscar por palabra o traducción..." style="padding: 8px 12px; width: 250px; border-radius: 6px; border: 1px solid #ccc;">
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+          <input type="text" id="searchInput" placeholder="🔍 Buscar (ej: bat, dog, cat)..." style="padding: 8px 12px; width: 280px; border-radius: 6px; border: 1px solid #ccc;">
           
           <select id="categoryFilter" style="padding: 8px 12px; border-radius: 6px; border: 1px solid #ccc; background: white;">
             <option value="ALL">Todas las categorías</option>
@@ -133,10 +139,12 @@
             <option value="adj">Adjective (Adjetivo)</option>
             <option value="adv">Adverb (Adverbio)</option>
           </select>
+
+          <button class="btn btn-warning" onclick="openSmartPasteModal()" title="Pegar lista desde Sheets o Reportes">📋 Lector Inteligente</button>
         </div>
 
-        <div>
-          <button id="selectAllBtn" class="btn btn-secondary">Seleccionar visibles</button>
+        <div style="display: flex; gap: 8px;">
+          <button id="toggleSelectBtn" class="btn btn-secondary">Seleccionar visibles</button>
           <button id="downloadZipBtn" class="btn btn-success" disabled>Descargar ZIP (0)</button>
         </div>
       </div>
@@ -149,6 +157,22 @@
 
     <!-- Rejilla de Imágenes -->
     <div class="words-grid" id="wordsGrid"></div>
+  </div>
+
+  <!-- Modal Lector Inteligente -->
+  <div class="modal" id="smartPasteModal">
+    <div class="modal-content">
+      <h3 style="margin-top:0;">📋 Lector Inteligente de Listas</h3>
+      <p style="font-size: 0.9rem; color: #555;">Pega aquí tus palabras tal como vienen desde <b>Google Sheets, Excel, PDFs o listas separadas por comas/saltos de línea</b>:</p>
+      <textarea id="smartPasteInput" placeholder="Ejemplo:&#10;apple&#10;banana&#10;orange, cat, dog"></textarea>
+      <div style="display: flex; justify-content: space-between;">
+        <button class="btn btn-secondary" onclick="closeSmartPasteModal()">Cancelar</button>
+        <div>
+          <button class="btn btn-primary" onclick="processSmartPaste('filter')">🔍 Filtrar en pantalla</button>
+          <button class="btn btn-success" onclick="processSmartPaste('select')">✅ Filtrar y Seleccionar</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -200,10 +224,7 @@
       if (arrayFiles.length === 0) return;
 
       dumperFiles = arrayFiles.map(file => {
-        // Extraer nombre básico sin extensión
         const nameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
-        
-        // Separar si viene con guion bajo o medio (ej: dog_perro o dog-perro)
         const parts = nameWithoutExt.split(/[-_]/);
         const rawWord = parts[0] ? parts[0].trim() : nameWithoutExt;
         const rawTrans = parts[1] ? parts[1].trim() : '';
@@ -310,17 +331,26 @@
       return str.toLowerCase().trim().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
     }
 
-    // Renderizar tarjetas con triple filtro
+    // Renderizar tarjetas con soporte para búsquedas múltiples por comas
     function renderGrid() {
       const grid = document.getElementById('wordsGrid');
-      const searchSearch = document.getElementById('searchInput').value.toLowerCase();
+      const rawSearch = document.getElementById('searchInput').value.toLowerCase().trim();
       const selectedCategory = document.getElementById('categoryFilter').value.toLowerCase();
       grid.innerHTML = '';
 
+      // Dividir búsqueda por comas (multibúsqueda)
+      const searchTerms = rawSearch ? rawSearch.split(',').map(t => t.trim()).filter(t => t !== '') : [];
+
       const filtered = allWords.filter(item => {
         const matchesLetter = currentLetterFilter === 'ALL' || item.word.toUpperCase().startsWith(currentLetterFilter);
-        const matchesSearch = item.word.toLowerCase().includes(searchSearch) || (item.translation && item.translation.toLowerCase().includes(searchSearch));
         
+        let matchesSearch = true;
+        if (searchTerms.length > 0) {
+          const w = item.word.toLowerCase();
+          const t = (item.translation || '').toLowerCase();
+          matchesSearch = searchTerms.some(term => w.includes(term) || t.includes(term));
+        }
+
         const itemCategory = (item.part_of_speech || item.category || '').toLowerCase();
         const matchesCategory = selectedCategory === 'all' || itemCategory === selectedCategory;
 
@@ -366,10 +396,13 @@
             selectedWords.delete(item.image_url);
           }
           actualizarBotonZip();
+          updateToggleSelectBtn();
         });
 
         grid.appendChild(card);
       });
+
+      updateToggleSelectBtn();
     }
 
     function filterByLetter(letter, btnElement) {
@@ -388,15 +421,82 @@
       btn.disabled = selectedWords.size === 0;
     }
 
-    document.getElementById('selectAllBtn').addEventListener('click', () => {
-      const cards = document.querySelectorAll('.card');
-      cards.forEach(card => {
+    // Botón Conmutable Seleccionar / Deseleccionar Visibles
+    const toggleSelectBtn = document.getElementById('toggleSelectBtn');
+
+    function updateToggleSelectBtn() {
+      const visibleCards = document.querySelectorAll('.card');
+      if (visibleCards.length === 0) {
+        toggleSelectBtn.textContent = "Seleccionar visibles";
+        return;
+      }
+
+      const allVisibleSelected = Array.from(visibleCards).every(card => card.querySelector('input').checked);
+      if (allVisibleSelected) {
+        toggleSelectBtn.textContent = "Deseleccionar visibles";
+      } else {
+        toggleSelectBtn.textContent = "Seleccionar visibles";
+      }
+    }
+
+    toggleSelectBtn.addEventListener('click', () => {
+      const visibleCards = document.querySelectorAll('.card');
+      const allVisibleSelected = Array.from(visibleCards).every(card => card.querySelector('input').checked);
+
+      visibleCards.forEach(card => {
         const checkbox = card.querySelector('input');
-        if (!checkbox.checked) {
-          card.click();
+        if (allVisibleSelected) {
+          // Deseleccionar todos los visibles
+          if (checkbox.checked) card.click();
+        } else {
+          // Seleccionar todos los visibles
+          if (!checkbox.checked) card.click();
         }
       });
     });
+
+    // Lector Inteligente Modal
+    function openSmartPasteModal() {
+      document.getElementById('smartPasteModal').style.display = 'flex';
+      document.getElementById('smartPasteInput').focus();
+    }
+
+    function closeSmartPasteModal() {
+      document.getElementById('smartPasteModal').style.display = 'none';
+      document.getElementById('smartPasteInput').value = '';
+    }
+
+    function processSmartPaste(action) {
+      const rawText = document.getElementById('smartPasteInput').value;
+      if (!rawText.trim()) {
+        closeSmartPasteModal();
+        return;
+      }
+
+      // Separar por comas, saltos de línea (\n), retornos (\r) y tabulaciones (\t)
+      const parsedWords = rawText
+        .split(/[\n\r\t,]+/)
+        .map(w => w.trim())
+        .filter(w => w.length > 0);
+
+      if (parsedWords.length === 0) return;
+
+      // Poner en el buscador principal unidos por comas
+      const searchInput = document.getElementById('searchInput');
+      searchInput.value = parsedWords.join(', ');
+
+      closeSmartPasteModal();
+      renderGrid();
+
+      // Si seleccionó "Filtrar y Seleccionar", marcar automáticamente
+      if (action === 'select') {
+        const visibleCards = document.querySelectorAll('.card');
+        visibleCards.forEach(card => {
+          const checkbox = card.querySelector('input');
+          if (!checkbox.checked) card.click();
+        });
+      }
+    }
 
     // Subir nueva palabra
     document.getElementById('uploadForm').addEventListener('submit', async (e) => {
