@@ -26,6 +26,15 @@
     .btn-warning { background: #f59e0b; color: white; }
     .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+    /* Campo de contraseña con ojito */
+    .password-wrapper { position: relative; width: 100%; }
+    .password-wrapper input { width: 100%; padding: 10px 40px 10px 10px; border-radius: 6px; border: 1px solid #ccc; }
+    .toggle-password { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; user-select: none; font-size: 1.1rem; }
+
+    .alert-box { display: none; padding: 12px; border-radius: 6px; margin-top: 15px; font-size: 0.9rem; text-align: left; }
+    .alert-success { background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+    .alert-error { background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+
     .drop-zone { border: 2px dashed #4f46e5; border-radius: 10px; padding: 25px; text-align: center; background: #eef2ff; color: #4f46e5; font-weight: bold; cursor: pointer; }
     .dumper-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
     .dumper-table th, .dumper-table td { padding: 10px; border: 1px solid #e5e7eb; text-align: left; }
@@ -58,14 +67,23 @@
 <body>
 
   <!-- PANTALLA DE ACCESO (LOGIN / REGISTRO) -->
-  <div id="authContainer" class="panel" style="max-width: 400px; margin: 80px auto; text-align: center;">
+  <div id="authContainer" class="panel" style="max-width: 420px; margin: 80px auto; text-align: center;">
     <h2>🔐 Acceso a LexiVault</h2>
-    <div style="display: flex; flex-direction: column; gap: 10px; margin: 20px 0;">
+    
+    <div style="display: flex; flex-direction: column; gap: 12px; margin: 20px 0;">
       <input type="email" id="authEmail" placeholder="Correo electrónico" style="padding: 10px; border-radius: 6px; border: 1px solid #ccc;">
-      <input type="password" id="authPassword" placeholder="Contraseña" style="padding: 10px; border-radius: 6px; border: 1px solid #ccc;">
+      
+      <div class="password-wrapper">
+        <input type="password" id="authPassword" placeholder="Contraseña">
+        <span class="toggle-password" onclick="togglePasswordVisibility()">👁️</span>
+      </div>
     </div>
+
     <button class="btn btn-primary" style="width: 100%; margin-bottom: 8px;" onclick="login()">Iniciar Sesión</button>
     <button class="btn btn-secondary" style="width: 100%;" onclick="signUp()">Crear Cuenta Nueva</button>
+
+    <!-- Banner de mensajes (Confirmación / Error) -->
+    <div id="authAlert" class="alert-box"></div>
   </div>
 
   <!-- APLICACIÓN PRINCIPAL (OCULTA POR DEFECTO) -->
@@ -176,9 +194,8 @@
   </div>
 
   <script>
-    // COLOCA TUS CREDENCIALES DE SUPABASE AQUÍ
-    const SUPABASE_URL = "https://qbblefawjkdsrhunmbpz.supabase.co";
-    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFiYmxlZmF3amtkc3JodW5tYnB6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczMTkzNjcsImV4cCI6MjEwMjg5NTM2N30.Y0yTlrlctJSUkpJGX2Z4GUx6P0BDRDhNn3iJ_GnPxNI";
+    const SUPABASE_URL = "https://TU_PROYECTO.supabase.co";
+    const SUPABASE_KEY = "TU_ANON_KEY";
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     let userSession = null;
@@ -187,7 +204,26 @@
     let currentLetterFilter = 'ALL';
     let dumperFiles = [];
 
-    // Verificación de sesión
+    // Ver o ocultar contraseña
+    function togglePasswordVisibility() {
+      const passInput = document.getElementById('authPassword');
+      const toggleBtn = document.querySelector('.toggle-password');
+      if (passInput.type === 'password') {
+        passInput.type = 'text';
+        toggleBtn.textContent = '🙈';
+      } else {
+        passInput.type = 'password';
+        toggleBtn.textContent = '👁️';
+      }
+    }
+
+    function showAlert(message, type) {
+      const alertBox = document.getElementById('authAlert');
+      alertBox.className = `alert-box alert-${type}`;
+      alertBox.style.display = 'block';
+      alertBox.innerHTML = message;
+    }
+
     async function checkSession() {
       const { data: { session } } = await supabaseClient.auth.getSession();
       if (session) {
@@ -201,39 +237,43 @@
       }
     }
 
-   async function login() {
-  const email = document.getElementById('authEmail').value.trim();
-  const password = document.getElementById('authPassword').value.trim();
-  
-  if (!email || !password) {
-    return alert('Por favor, ingresa tu correo y contraseña.');
-  }
+    async function login() {
+      const email = document.getElementById('authEmail').value.trim();
+      const password = document.getElementById('authPassword').value.trim();
+      
+      if (!email || !password) {
+        return showAlert('Por favor, ingresa tu correo y contraseña.', 'error');
+      }
 
-  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-  if (error) return alert('Error al iniciar sesión: ' + error.message);
-  
-  checkSession();
-}
+      const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      if (error) {
+        return showAlert('Error al iniciar sesión: ' + error.message, 'error');
+      }
+      
+      checkSession();
+    }
 
-async function signUp() {
-  const email = document.getElementById('authEmail').value.trim();
-  const password = document.getElementById('authPassword').value.trim();
+    async function signUp() {
+      const email = document.getElementById('authEmail').value.trim();
+      const password = document.getElementById('authPassword').value.trim();
 
-  if (!email || !password) {
-    return alert('Por favor, completa todos los campos para crear la cuenta.');
-  }
+      if (!email || !password) {
+        return showAlert('Por favor, completa tu correo y contraseña.', 'error');
+      }
 
-  const { error } = await supabaseClient.auth.signUp({ email, password });
-  if (error) return alert('Error en registro: ' + error.message);
-  alert('¡Cuenta creada con éxito! Ya puedes iniciar sesión.');
-}
+      const { data, error } = await supabaseClient.auth.signUp({ email, password });
+      if (error) {
+        return showAlert('Error en el registro: ' + error.message, 'error');
+      }
+
+      showAlert('📧 <b>¡Cuenta registrada!</b> Hemos enviado un enlace de confirmación a tu correo electrónico. Por favor revísalo para activar tu cuenta.', 'success');
+    }
 
     async function logout() {
       await supabaseClient.auth.signOut();
       window.location.reload();
     }
 
-    // Funciones principales
     function switchTab(tab) {
       document.getElementById('singleUploadView').style.display = tab === 'single' ? 'block' : 'none';
       document.getElementById('dumperView').style.display = tab === 'dumper' ? 'block' : 'none';
@@ -379,7 +419,6 @@ async function signUp() {
       });
     });
 
-    // Lector inteligente
     function openSmartPasteModal() { document.getElementById('smartPasteModal').style.display = 'flex'; document.getElementById('smartPasteInput').focus(); }
     function closeSmartPasteModal() { document.getElementById('smartPasteModal').style.display = 'none'; document.getElementById('smartPasteInput').value = ''; }
     function processSmartPaste(action) {
@@ -400,7 +439,6 @@ async function signUp() {
       }
     }
 
-    // Subir formulario individual
     document.getElementById('uploadForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const formData = new FormData();
@@ -422,7 +460,6 @@ async function signUp() {
       }
     });
 
-    // Subir Dumper
     const dropZone = document.getElementById('dropZone');
     const dumperFileInput = document.getElementById('dumperFileInput');
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(e => dropZone.addEventListener(e, (evt) => { evt.preventDefault(); evt.stopPropagation(); }));
@@ -516,7 +553,6 @@ async function signUp() {
       if (res.ok) cargarPalabras();
     }
 
-    // Generar ZIP
     document.getElementById('downloadZipBtn').addEventListener('click', async () => {
       const zip = new JSZip();
       const btn = document.getElementById('downloadZipBtn');
