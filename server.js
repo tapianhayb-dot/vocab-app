@@ -4,33 +4,39 @@ const { createClient } = require('@supabase/supabase-js');
 const path = require('path');
 
 const app = express();
-const port = process.env.PORT || 3000;
-
-const storage = multer.memoryStorage();
-const upload = multer({ storage: storage });
-
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY;
-
-if (!supabaseUrl || !supabaseKey) {
-  console.error("ERROR CRÍTICO: Faltan las variables SUPABASE_URL o SUPABASE_KEY en Render.");
-}
-
-const supabase = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co', 
-  supabaseKey || 'placeholder'
-);
+const upload = multer({ storage: multer.memoryStorage() });
 
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static('public'));
 
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+// Variables de entorno de Supabase
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY;
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-app.get('/api/words', async (req, res) => {
+// Middleware para verificar el Token del Usuario
+async function authenticateUser(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ error: 'No autorizado. Inicia sesión.' });
+
+  const token = authHeader.split(' ')[1];
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+
+  if (error || !user) return res.status(401).json({ error: 'Sesión inválida o expirada.' });
+
+  req.user = user; // Guarda los datos del usuario logueado en la petición
+  next();
+}
+
+// 1. Obtener palabras del usuario activo
+app.get('/api/words', authenticateUser, async (req, res) => {
   try {
-    const { data, error } = await supabase.from('words').select('*');
+    const { data, error } = await supabase
+      .from('words')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false });
+
     if (error) throw error;
     res.json(data);
   } catch (err) {
@@ -38,67 +44,71 @@ app.get('/api/words', async (req, res) => {
   }
 });
 
-app.post('/api/words-with-image', upload.single('image'), async (req, res) => {
+// 2. Subir palabra e imagen vinculadas al usuario activo
+app.post('/api/words-with-image', authenticateUser, upload.single('image'), async (req, res) => {
   try {
     const { word, translation, context, part_of_speech } = req.body;
     const file = req.file;
 
-    if (!word || !file) {
-      return res.status(400).json({ error: 'La palabra y la imagen son obligatorias.' });
-    }
+    if (!file) return res.status(400).json({ error: 'La imagen es requerida.' });
 
+    // Nombrar la imagen dentro del bucket
     const fileExt = file.originalname.split('.').pop();
-    const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+    const fileName = `${req.user.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
 
-    // 1. Subir imagen al Bucket 'words-images'
-    const { data: storageData, error: storageError } = await supabase
+    // Subir a Supabase Storage
+    const { data: uploadData, error: uploadError } = await supabase
       .storage
-      .from('words-images')
+      .from('vocab-images')
       .upload(fileName, file.buffer, { contentType: file.mimetype });
 
-    if (storageError) throw storageError;
+    if (uploadError) throw uploadError;
 
-    // 2. Obtener URL pública
+    // Obtener URL pública
     const { data: publicUrlData } = supabase
       .storage
-      .from('words-images')
+      .from('vocab-images')
       .getPublicUrl(fileName);
 
     const imageUrl = publicUrlData.publicUrl;
 
-    // 3. Insertar en la tabla 'words' y devolver el registro (.select())
+    // Insertar en la base de datos con el ID del usuario
     const { data, error } = await supabase
       .from('words')
-      .insert([{ 
-        word: word.trim(), 
-        translation: translation?.trim() || null, 
-        context: context?.trim() || null, 
-        part_of_speech: part_of_speech?.trim() || null,
-        image_url: imageUrl 
-      }])
-      .select(); // <--- FUNDAMENTAL para devolver la fila insertada a la respuesta
+      .insert([
+        {
+          word,
+          translation,
+          context,
+          part_of_speech,
+          image_url: imageUrl,
+          user_id: req.user.id // <-- AQUÍ SE VINCULA AL USUARIO
+        }
+      ]);
 
     if (error) throw error;
-
-    res.json({ message: 'Guardado con éxito', data: data[0] });
+    res.json({ success: true, data });
   } catch (err) {
-    console.error("Error en POST /api/words-with-image:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
-// Ruta para eliminar una palabra por su ID
-app.delete('/api/words/:id', async (req, res) => {
-  const { id } = req.params;
-  const { data, error } = await supabase
-    .from('words') // Asegúrate de que tu tabla se llame 'words'
-    .delete()
-    .eq('id', id);
 
-  if (error) {
-    return res.status(500).json({ error: error.message });
+// 3. Eliminar palabra
+app.delete('/api/words/:id', authenticateUser, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { error } = await supabase
+      .from('words')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', req.user.id);
+
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-  res.json({ message: 'Palabra eliminada correctamente', data });
 });
-app.listen(port, () => {
-  console.log(`Servidor ejecutándose en el puerto ${port}`);
-});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Servidor iniciado en puerto ${PORT}`));

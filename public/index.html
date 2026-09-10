@@ -3,24 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Almacenador de words</title>
+  <title>LexiVault | Repositorio de Vocabulario</title>
+  <link rel="icon" type="image/png" href="/favicon.png">
+
   <style>
     * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
     body { background-color: #f8f9fa; margin: 0; padding: 20px; color: #333; }
     
     .container { max-width: 1400px; margin: 0 auto; }
-    
-    /* Panel de controles y formulario */
     .panel { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
     .form-grid { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 15px; }
     .form-grid input, .form-grid select { flex: 1; min-width: 150px; padding: 10px 14px; border: 1px solid #ccc; border-radius: 6px; }
     
-    /* Pestañas */
     .tabs { display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; }
     .tab-btn { padding: 8px 16px; border: none; background: transparent; font-weight: bold; cursor: pointer; color: #6b7280; border-radius: 6px; }
     .tab-btn.active { background: #4f46e5; color: white; }
 
-    /* Botones */
     .btn { padding: 10px 18px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
     .btn-primary { background: #4f46e5; color: white; }
     .btn-success { background: #10b981; color: white; }
@@ -28,28 +26,19 @@
     .btn-warning { background: #f59e0b; color: white; }
     .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-    /* Zona Dumper Drag & Drop */
-    .drop-zone { border: 2px dashed #4f46e5; border-radius: 10px; padding: 25px; text-align: center; background: #eef2ff; color: #4f46e5; font-weight: bold; cursor: pointer; transition: 0.2s; }
-    .drop-zone:hover { background: #e0e7ff; }
-
-    /* Tabla Dumper */
+    .drop-zone { border: 2px dashed #4f46e5; border-radius: 10px; padding: 25px; text-align: center; background: #eef2ff; color: #4f46e5; font-weight: bold; cursor: pointer; }
     .dumper-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
     .dumper-table th, .dumper-table td { padding: 10px; border: 1px solid #e5e7eb; text-align: left; }
     .dumper-table th { background: #f3f4f6; }
     .dumper-table img { width: 50px; height: 50px; object-fit: cover; border-radius: 6px; }
     .dumper-table input, .dumper-table select { width: 100%; padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; }
 
-    /* Filtro de Abecedario (A-Z) */
     .alphabet-filter { display: flex; flex-wrap: wrap; gap: 5px; margin: 15px 0; }
     .letter-btn { padding: 6px 12px; border: 1px solid #e5e7eb; background: white; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600; }
     .letter-btn.active, .letter-btn:hover { background: #4f46e5; color: white; border-color: #4f46e5; }
 
-    /* Grid de tarjetas */
     .words-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 18px; margin-top: 20px; }
-    
-    /* Tarjetas de palabras */
-    .card { background: white; border-radius: 10px; padding: 12px; text-align: center; border: 2px solid #e5e7eb; position: relative; cursor: pointer; user-select: none; transition: transform 0.1s, border-color 0.2s; }
-    .card:hover { transform: translateY(-3px); }
+    .card { background: white; border-radius: 10px; padding: 12px; text-align: center; border: 2px solid #e5e7eb; position: relative; cursor: pointer; user-select: none; }
     .card.selected { border-color: #10b981; background-color: #ecfdf5; }
     .card img { width: 100%; height: 130px; object-fit: cover; border-radius: 8px; margin-bottom: 8px; }
     .card-title { font-weight: bold; font-size: 1.1rem; margin: 5px 0 2px 0; }
@@ -57,28 +46,42 @@
     .card-tags { font-size: 0.78rem; color: #6b7280; font-style: italic; margin-top: 3px; }
     .checkbox-custom { position: absolute; top: 10px; right: 10px; width: 20px; height: 20px; cursor: pointer; }
 
-    /* Modal Lector Inteligente */
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; justify-content: center; align-items: center; }
     .modal-content { background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 600px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); }
     .modal-content textarea { width: 100%; height: 160px; padding: 12px; border: 1px solid #ccc; border-radius: 6px; font-family: monospace; resize: vertical; margin: 15px 0; }
   </style>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 </head>
 <body>
 
-  <div class="container">
-    <h1>📚 Almacenador de words</h1>
+  <!-- PANTALLA DE ACCESO (LOGIN / REGISTRO) -->
+  <div id="authContainer" class="panel" style="max-width: 400px; margin: 80px auto; text-align: center;">
+    <h2>🔐 Acceso a LexiVault</h2>
+    <div style="display: flex; flex-direction: column; gap: 10px; margin: 20px 0;">
+      <input type="email" id="authEmail" placeholder="Correo electrónico" style="padding: 10px; border-radius: 6px; border: 1px solid #ccc;">
+      <input type="password" id="authPassword" placeholder="Contraseña" style="padding: 10px; border-radius: 6px; border: 1px solid #ccc;">
+    </div>
+    <button class="btn btn-primary" style="width: 100%; margin-bottom: 8px;" onclick="login()">Iniciar Sesión</button>
+    <button class="btn btn-secondary" style="width: 100%;" onclick="signUp()">Crear Cuenta Nueva</button>
+  </div>
 
-    <!-- Panel de Subida con Pestañas -->
+  <!-- APLICACIÓN PRINCIPAL (OCULTA POR DEFECTO) -->
+  <div class="container" id="appContent" style="display: none;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+      <h1>📚 LexiVault</h1>
+      <button class="btn btn-secondary" onclick="logout()">Cerrar Sesión</button>
+    </div>
+
+    <!-- Panel de Subida -->
     <div class="panel">
       <div class="tabs">
         <button class="tab-btn active" id="tabSingleBtn" onclick="switchTab('single')">Subir Una Palabra</button>
         <button class="tab-btn" id="tabDumperBtn" onclick="switchTab('dumper')">⚡ Carga Masiva (Dumper)</button>
       </div>
 
-      <!-- Formulario Individual -->
       <div id="singleUploadView">
         <form id="uploadForm">
           <div class="form-grid">
@@ -98,7 +101,6 @@
         </form>
       </div>
 
-      <!-- Carga Masiva Dumper -->
       <div id="dumperView" style="display: none;">
         <div class="drop-zone" id="dropZone" onclick="document.getElementById('dumperFileInput').click()">
           📂 Arrastra aquí tus imágenes o haz clic para seleccionar varias a la vez
@@ -126,7 +128,7 @@
       </div>
     </div>
 
-    <!-- Controles de Filtro y Descarga -->
+    <!-- Controles de Filtro -->
     <div class="panel">
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
         <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
@@ -140,7 +142,7 @@
             <option value="adv">Adverb (Adverbio)</option>
           </select>
 
-          <button class="btn btn-warning" onclick="openSmartPasteModal()" title="Pegar lista desde Sheets o Reportes">📋 Lector Inteligente</button>
+          <button class="btn btn-warning" onclick="openSmartPasteModal()">📋 Lector Inteligente</button>
         </div>
 
         <div style="display: flex; gap: 8px;">
@@ -149,13 +151,11 @@
         </div>
       </div>
 
-      <!-- Menú A-Z -->
       <div class="alphabet-filter" id="alphabetBar">
         <button class="letter-btn active" id="btnAll">TODAS</button>
       </div>
     </div>
 
-    <!-- Rejilla de Imágenes -->
     <div class="words-grid" id="wordsGrid"></div>
   </div>
 
@@ -176,12 +176,56 @@
   </div>
 
   <script>
+    // COLOCA TUS CREDENCIALES DE SUPABASE AQUÍ
+    const SUPABASE_URL = "https://qbblefawjkdsrhunmbpz.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFiYmxlZmF3amtkc3JodW5tYnB6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczMTkzNjcsImV4cCI6MjEwMjg5NTM2N30.Y0yTlrlctJSUkpJGX2Z4GUx6P0BDRDhNn3iJ_GnPxNI";
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let userSession = null;
     let allWords = [];
     const selectedWords = new Map();
     let currentLetterFilter = 'ALL';
     let dumperFiles = [];
 
-    // Cambiar pestañas
+    // Verificación de sesión
+    async function checkSession() {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (session) {
+        userSession = session;
+        document.getElementById('authContainer').style.display = 'none';
+        document.getElementById('appContent').style.display = 'block';
+        cargarPalabras();
+      } else {
+        document.getElementById('authContainer').style.display = 'block';
+        document.getElementById('appContent').style.display = 'none';
+      }
+    }
+
+    async function login() {
+      const email = document.getElementById('authEmail').value.trim();
+      const password = document.getElementById('authPassword').value.trim();
+      
+      const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      if (error) return alert('Error al iniciar sesión: ' + error.message);
+      
+      checkSession();
+    }
+
+    async function signUp() {
+      const email = document.getElementById('authEmail').value.trim();
+      const password = document.getElementById('authPassword').value.trim();
+
+      const { error } = await supabaseClient.auth.signUp({ email, password });
+      if (error) return alert('Error en registro: ' + error.message);
+      alert('¡Cuenta creada con éxito! Ya puedes iniciar sesión.');
+    }
+
+    async function logout() {
+      await supabaseClient.auth.signOut();
+      window.location.reload();
+    }
+
+    // Funciones principales
     function switchTab(tab) {
       document.getElementById('singleUploadView').style.display = tab === 'single' ? 'block' : 'none';
       document.getElementById('dumperView').style.display = tab === 'dumper' ? 'block' : 'none';
@@ -189,14 +233,10 @@
       document.getElementById('tabDumperBtn').classList.toggle('active', tab === 'dumper');
     }
 
-    // Inicializar abecedario
     function initAlphabet() {
       const alphabetBar = document.getElementById('alphabetBar');
       const btnAll = document.getElementById('btnAll');
-
-      if (btnAll) {
-        btnAll.addEventListener('click', () => filterByLetter('ALL', btnAll));
-      }
+      if (btnAll) btnAll.addEventListener('click', () => filterByLetter('ALL', btnAll));
 
       for (let i = 65; i <= 90; i++) {
         const letter = String.fromCharCode(i);
@@ -208,111 +248,14 @@
       }
     }
 
-    // Lógica Dumper (Drag & Drop y Procesamiento)
-    const dropZone = document.getElementById('dropZone');
-    const dumperFileInput = document.getElementById('dumperFileInput');
-
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-      dropZone.addEventListener(eventName, (e) => { e.preventDefault(); e.stopPropagation(); }, false);
-    });
-
-    dropZone.addEventListener('drop', (e) => handleFiles(e.dataTransfer.files));
-    dumperFileInput.addEventListener('change', (e) => handleFiles(e.target.files));
-
-    function handleFiles(files) {
-      const arrayFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
-      if (arrayFiles.length === 0) return;
-
-      dumperFiles = arrayFiles.map(file => {
-        const nameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
-        const parts = nameWithoutExt.split(/[-_]/);
-        const rawWord = parts[0] ? parts[0].trim() : nameWithoutExt;
-        const rawTrans = parts[1] ? parts[1].trim() : '';
-
-        return {
-          file: file,
-          previewUrl: URL.createObjectURL(file),
-          word: rawWord.charAt(0).toUpperCase() + rawWord.slice(1),
-          translation: rawTrans ? rawTrans.charAt(0).toUpperCase() + rawTrans.slice(1) : '',
-          context: '',
-          part_of_speech: ''
-        };
-      });
-
-      renderDumperTable();
-    }
-
-    function renderDumperTable() {
-      const tbody = document.getElementById('dumperTbody');
-      tbody.innerHTML = '';
-
-      dumperFiles.forEach((item, index) => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td><img src="${item.previewUrl}" alt="Preview"></td>
-          <td><input type="text" value="${item.word}" oninput="dumperFiles[${index}].word = this.value"></td>
-          <td><input type="text" value="${item.translation}" oninput="dumperFiles[${index}].translation = this.value"></td>
-          <td><input type="text" value="${item.context}" placeholder="ej: casa" oninput="dumperFiles[${index}].context = this.value"></td>
-          <td>
-            <select onchange="dumperFiles[${index}].part_of_speech = this.value">
-              <option value="">Opcional</option>
-              <option value="noun" ${item.part_of_speech === 'noun' ? 'selected' : ''}>Noun</option>
-              <option value="verb" ${item.part_of_speech === 'verb' ? 'selected' : ''}>Verb</option>
-              <option value="adj" ${item.part_of_speech === 'adj' ? 'selected' : ''}>Adjective</option>
-              <option value="adv" ${item.part_of_speech === 'adv' ? 'selected' : ''}>Adverb</option>
-            </select>
-          </td>
-          <td><button class="btn" style="background:#ff4d4d; color:white; padding: 4px 8px;" onclick="removeDumperItem(${index})">&times;</button></td>
-        `;
-        tbody.appendChild(tr);
-      });
-
-      document.getElementById('dumperTableContainer').style.display = dumperFiles.length > 0 ? 'block' : 'none';
-    }
-
-    function removeDumperItem(index) {
-      dumperFiles.splice(index, 1);
-      renderDumperTable();
-    }
-
-    async function saveDumperBatch() {
-      const btn = document.getElementById('saveDumperBatchBtn');
-      btn.disabled = true;
-      btn.textContent = 'Guardando Lote...';
-
-      for (const item of dumperFiles) {
-        if (!item.word.trim()) continue;
-
-        const formData = new FormData();
-        formData.append('word', item.word);
-        formData.append('translation', item.translation);
-        formData.append('context', item.context);
-        formData.append('part_of_speech', item.part_of_speech);
-        formData.append('image', item.file);
-
-        try {
-          await fetch('/api/words-with-image', { method: 'POST', body: formData });
-        } catch (err) {
-          console.error('Error al guardar palabra:', item.word, err);
-        }
-      }
-
-      dumperFiles = [];
-      renderDumperTable();
-      btn.disabled = false;
-      btn.textContent = '💾 Guardar todas en lote';
-      switchTab('single');
-      cargarPalabras();
-    }
-
-    // Cargar palabras
     async function cargarPalabras() {
       try {
-        const res = await fetch('/api/words');
+        const res = await fetch('/api/words', {
+          headers: { 'Authorization': `Bearer ${userSession.access_token}` }
+        });
         const data = await res.json();
 
         if (!res.ok || !Array.isArray(data)) {
-          console.error('Error al cargar palabras:', data);
           allWords = [];
           renderGrid();
           return;
@@ -322,7 +265,7 @@
         allWords.sort((a, b) => a.word.localeCompare(b.word));
         renderGrid();
       } catch (err) {
-        console.error('Error de red al conectar con /api/words:', err);
+        console.error('Error al cargar palabras:', err);
       }
     }
 
@@ -331,14 +274,12 @@
       return str.toLowerCase().trim().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
     }
 
-    // Renderizar tarjetas con soporte para búsquedas múltiples por comas
     function renderGrid() {
       const grid = document.getElementById('wordsGrid');
       const rawSearch = document.getElementById('searchInput').value.toLowerCase().trim();
       const selectedCategory = document.getElementById('categoryFilter').value.toLowerCase();
       grid.innerHTML = '';
 
-      // Dividir búsqueda por comas (multibúsqueda)
       const searchTerms = rawSearch ? rawSearch.split(',').map(t => t.trim()).filter(t => t !== '') : [];
 
       const filtered = allWords.filter(item => {
@@ -359,14 +300,7 @@
 
       filtered.forEach(item => {
         const ext = (item.image_url || '').split('.').pop().split('?')[0] || 'jpg';
-        
-        const parts = [
-          sanitize(item.word),
-          sanitize(item.translation),
-          sanitize(item.context),
-          sanitize(item.part_of_speech || item.category)
-        ].filter(p => p !== '');
-
+        const parts = [sanitize(item.word), sanitize(item.translation), sanitize(item.context), sanitize(item.part_of_speech || item.category)].filter(p => p !== '');
         const fileName = `${parts.join('_')}.${ext}`;
         const isSelected = selectedWords.has(item.image_url);
 
@@ -384,10 +318,8 @@
         `;
 
         const checkbox = card.querySelector('input');
-        
         card.addEventListener('click', (e) => {
           if (e.target !== checkbox) checkbox.checked = !checkbox.checked;
-          
           if (checkbox.checked) {
             card.classList.add('selected');
             selectedWords.set(item.image_url, fileName);
@@ -421,94 +353,48 @@
       btn.disabled = selectedWords.size === 0;
     }
 
-    // Botón Conmutable Seleccionar / Deseleccionar Visibles
     const toggleSelectBtn = document.getElementById('toggleSelectBtn');
-
     function updateToggleSelectBtn() {
       const visibleCards = document.querySelectorAll('.card');
-      if (visibleCards.length === 0) {
-        toggleSelectBtn.textContent = "Seleccionar visibles";
-        return;
-      }
-
+      if (visibleCards.length === 0) { toggleSelectBtn.textContent = "Seleccionar visibles"; return; }
       const allVisibleSelected = Array.from(visibleCards).every(card => card.querySelector('input').checked);
-      if (allVisibleSelected) {
-        toggleSelectBtn.textContent = "Deseleccionar visibles";
-      } else {
-        toggleSelectBtn.textContent = "Seleccionar visibles";
-      }
+      toggleSelectBtn.textContent = allVisibleSelected ? "Deseleccionar visibles" : "Seleccionar visibles";
     }
 
     toggleSelectBtn.addEventListener('click', () => {
       const visibleCards = document.querySelectorAll('.card');
       const allVisibleSelected = Array.from(visibleCards).every(card => card.querySelector('input').checked);
-
       visibleCards.forEach(card => {
         const checkbox = card.querySelector('input');
-        if (allVisibleSelected) {
-          // Deseleccionar todos los visibles
-          if (checkbox.checked) card.click();
-        } else {
-          // Seleccionar todos los visibles
-          if (!checkbox.checked) card.click();
-        }
+        if (allVisibleSelected && checkbox.checked) card.click();
+        else if (!allVisibleSelected && !checkbox.checked) card.click();
       });
     });
 
-    // Lector Inteligente Modal
-    function openSmartPasteModal() {
-      document.getElementById('smartPasteModal').style.display = 'flex';
-      document.getElementById('smartPasteInput').focus();
-    }
-
-    function closeSmartPasteModal() {
-      document.getElementById('smartPasteModal').style.display = 'none';
-      document.getElementById('smartPasteInput').value = '';
-    }
-
+    // Lector inteligente
+    function openSmartPasteModal() { document.getElementById('smartPasteModal').style.display = 'flex'; document.getElementById('smartPasteInput').focus(); }
+    function closeSmartPasteModal() { document.getElementById('smartPasteModal').style.display = 'none'; document.getElementById('smartPasteInput').value = ''; }
     function processSmartPaste(action) {
       const rawText = document.getElementById('smartPasteInput').value;
-      if (!rawText.trim()) {
-        closeSmartPasteModal();
-        return;
-      }
-
-      // Separar por comas, saltos de línea (\n), retornos (\r) y tabulaciones (\t)
-      const parsedWords = rawText
-        .split(/[\n\r\t,]+/)
-        .map(w => w.trim())
-        .filter(w => w.length > 0);
-
+      if (!rawText.trim()) return closeSmartPasteModal();
+      const parsedWords = rawText.split(/[\n\r\t,]+/).map(w => w.trim()).filter(w => w.length > 0);
       if (parsedWords.length === 0) return;
 
-      // Poner en el buscador principal unidos por comas
-      const searchInput = document.getElementById('searchInput');
-      searchInput.value = parsedWords.join(', ');
-
+      document.getElementById('searchInput').value = parsedWords.join(', ');
       closeSmartPasteModal();
       renderGrid();
 
-      // Si seleccionó "Filtrar y Seleccionar", marcar automáticamente
       if (action === 'select') {
-        const visibleCards = document.querySelectorAll('.card');
-        visibleCards.forEach(card => {
+        document.querySelectorAll('.card').forEach(card => {
           const checkbox = card.querySelector('input');
           if (!checkbox.checked) card.click();
         });
       }
     }
 
-    // Subir nueva palabra
+    // Subir formulario individual
     document.getElementById('uploadForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const wordInput = document.getElementById('word').value.trim();
-      const isDuplicate = allWords.some(item => item.word.toLowerCase() === wordInput.toLowerCase());
-
-      if (isDuplicate) {
-        alert(`La palabra "${wordInput}" ya existe en el catálogo.`);
-        return;
-      }
-
       const formData = new FormData();
       formData.append('word', document.getElementById('word').value);
       formData.append('translation', document.getElementById('translation').value);
@@ -516,12 +402,111 @@
       formData.append('part_of_speech', document.getElementById('partOfSpeech').value);
       formData.append('image', document.getElementById('image').files[0]);
 
-      const res = await fetch('/api/words-with-image', { method: 'POST', body: formData });
+      const res = await fetch('/api/words-with-image', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${userSession.access_token}` },
+        body: formData
+      });
+
       if (res.ok) {
         document.getElementById('uploadForm').reset();
         cargarPalabras();
       }
     });
+
+    // Subir Dumper
+    const dropZone = document.getElementById('dropZone');
+    const dumperFileInput = document.getElementById('dumperFileInput');
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(e => dropZone.addEventListener(e, (evt) => { evt.preventDefault(); evt.stopPropagation(); }));
+    dropZone.addEventListener('drop', (e) => handleFiles(e.dataTransfer.files));
+    dumperFileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+    function handleFiles(files) {
+      const arrayFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+      if (arrayFiles.length === 0) return;
+
+      dumperFiles = arrayFiles.map(file => {
+        const nameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+        const parts = nameWithoutExt.split(/[-_]/);
+        return {
+          file: file,
+          previewUrl: URL.createObjectURL(file),
+          word: (parts[0] || nameWithoutExt).trim(),
+          translation: (parts[1] || '').trim(),
+          context: '',
+          part_of_speech: ''
+        };
+      });
+      renderDumperTable();
+    }
+
+    function renderDumperTable() {
+      const tbody = document.getElementById('dumperTbody');
+      tbody.innerHTML = '';
+      dumperFiles.forEach((item, index) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><img src="${item.previewUrl}" alt="Preview"></td>
+          <td><input type="text" value="${item.word}" oninput="dumperFiles[${index}].word = this.value"></td>
+          <td><input type="text" value="${item.translation}" oninput="dumperFiles[${index}].translation = this.value"></td>
+          <td><input type="text" value="${item.context}" placeholder="ej: casa" oninput="dumperFiles[${index}].context = this.value"></td>
+          <td>
+            <select onchange="dumperFiles[${index}].part_of_speech = this.value">
+              <option value="">Opcional</option>
+              <option value="noun" ${item.part_of_speech === 'noun' ? 'selected' : ''}>Noun</option>
+              <option value="verb" ${item.part_of_speech === 'verb' ? 'selected' : ''}>Verb</option>
+              <option value="adj" ${item.part_of_speech === 'adj' ? 'selected' : ''}>Adjective</option>
+              <option value="adv" ${item.part_of_speech === 'adv' ? 'selected' : ''}>Adverb</option>
+            </select>
+          </td>
+          <td><button class="btn" style="background:#ff4d4d; color:white; padding: 4px 8px;" onclick="removeDumperItem(${index})">&times;</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+      document.getElementById('dumperTableContainer').style.display = dumperFiles.length > 0 ? 'block' : 'none';
+    }
+
+    function removeDumperItem(index) { dumperFiles.splice(index, 1); renderDumperTable(); }
+
+    async function saveDumperBatch() {
+      const btn = document.getElementById('saveDumperBatchBtn');
+      btn.disabled = true;
+      btn.textContent = 'Guardando Lote...';
+
+      for (const item of dumperFiles) {
+        if (!item.word.trim()) continue;
+        const formData = new FormData();
+        formData.append('word', item.word);
+        formData.append('translation', item.translation);
+        formData.append('context', item.context);
+        formData.append('part_of_speech', item.part_of_speech);
+        formData.append('image', item.file);
+
+        try {
+          await fetch('/api/words-with-image', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${userSession.access_token}` },
+            body: formData
+          });
+        } catch (err) { console.error('Error:', err); }
+      }
+
+      dumperFiles = [];
+      renderDumperTable();
+      btn.disabled = false;
+      btn.textContent = '💾 Guardar todas en lote';
+      switchTab('single');
+      cargarPalabras();
+    }
+
+    async function deleteWord(id) {
+      if (!confirm('¿Seguro que deseas eliminar esta palabra?')) return;
+      const res = await fetch(`/api/words/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${userSession.access_token}` }
+      });
+      if (res.ok) cargarPalabras();
+    }
 
     // Generar ZIP
     document.getElementById('downloadZipBtn').addEventListener('click', async () => {
@@ -534,9 +519,7 @@
           const response = await fetch(url);
           const blob = await response.blob();
           zip.file(filename, blob);
-        } catch (err) {
-          console.error('Error al descargar:', url, err);
-        }
+        } catch (err) { console.error(err); }
       }
 
       zip.generateAsync({ type: 'blob' }).then((content) => {
@@ -545,24 +528,8 @@
       });
     });
 
-    async function deleteWord(id) {
-      if (!confirm('¿Seguro que deseas eliminar esta palabra?')) return;
-
-      try {
-        const res = await fetch(`/api/words/${id}`, { method: 'DELETE' });
-        if (res.ok) {
-          cargarPalabras();
-        } else {
-          alert('Error al eliminar la palabra');
-        }
-      } catch (err) {
-        console.error('Error al borrar:', err);
-      }
-    }
-
-    // Inicializar todo
     initAlphabet();
-    cargarPalabras();
+    checkSession();
   </script>
 </body>
 </html>
