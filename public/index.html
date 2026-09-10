@@ -201,24 +201,32 @@
       }
     }
 
-    async function login() {
-      const email = document.getElementById('authEmail').value.trim();
-      const password = document.getElementById('authPassword').value.trim();
-      
-      const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-      if (error) return alert('Error al iniciar sesión: ' + error.message);
-      
-      checkSession();
-    }
+   async function login() {
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value.trim();
+  
+  if (!email || !password) {
+    return alert('Por favor, ingresa tu correo y contraseña.');
+  }
 
-    async function signUp() {
-      const email = document.getElementById('authEmail').value.trim();
-      const password = document.getElementById('authPassword').value.trim();
+  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+  if (error) return alert('Error al iniciar sesión: ' + error.message);
+  
+  checkSession();
+}
 
-      const { error } = await supabaseClient.auth.signUp({ email, password });
-      if (error) return alert('Error en registro: ' + error.message);
-      alert('¡Cuenta creada con éxito! Ya puedes iniciar sesión.');
-    }
+async function signUp() {
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value.trim();
+
+  if (!email || !password) {
+    return alert('Por favor, completa todos los campos para crear la cuenta.');
+  }
+
+  const { error } = await supabaseClient.auth.signUp({ email, password });
+  if (error) return alert('Error en registro: ' + error.message);
+  alert('¡Cuenta creada con éxito! Ya puedes iniciar sesión.');
+}
 
     async function logout() {
       await supabaseClient.auth.signOut();
